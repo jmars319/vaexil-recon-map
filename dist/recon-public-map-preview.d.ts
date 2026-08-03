@@ -1,0 +1,32 @@
+import { type ReconSuggestionContext, type ReconViewerCategory, type ReconViewerMarker } from "./recon-map-viewer";
+import type { ReconMarkerSuggestionAction } from "./types";
+export type ReconPublicMapView = {
+    id: string;
+    label: string;
+    shortLabel: string;
+    kind: string;
+    floor: string;
+    imageSrc: string | null;
+    width: number;
+    height: number;
+    notes: string;
+};
+type ReconPublicMapPreviewProps = {
+    title: string;
+    imageSrc?: string | null;
+    imageAlt?: string;
+    width: number;
+    height: number;
+    minZoom?: number | null;
+    maxZoom?: number | null;
+    markers: ReconViewerMarker[];
+    categories: ReconViewerCategory[];
+    mapViews?: ReconPublicMapView[];
+    markerSummaryLabel?: string;
+    emptyState?: string;
+    className?: string;
+    suggestionContext?: Omit<ReconSuggestionContext, "floor">;
+    suggestionAction?: ReconMarkerSuggestionAction;
+};
+export declare function ReconPublicMapPreview({ title, imageSrc, imageAlt, width, height, minZoom, maxZoom, markers, categories, mapViews, markerSummaryLabel, emptyState, className, suggestionContext, suggestionAction, }: ReconPublicMapPreviewProps): import("react").JSX.Element;
+export {};

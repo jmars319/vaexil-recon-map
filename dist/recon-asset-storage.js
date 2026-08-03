@@ -1,0 +1,136 @@
+import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { extname } from "node:path";
+const reconAssetPrefixes = ["private/recon/", "public/recon/"];
+let r2Client = null;
+export function getReconAssetContentType(path) {
+    const extension = extname(path).toLowerCase();
+    switch (extension) {
+        case ".svg":
+            return "image/svg+xml; charset=utf-8";
+        case ".png":
+            return "image/png";
+        case ".jpg":
+        case ".jpeg":
+            return "image/jpeg";
+        case ".webp":
+            return "image/webp";
+        default:
+            return "application/octet-stream";
+    }
+}
+export function isReconAssetKey(path) {
+    return (!path.startsWith("/") &&
+        !path.split("/").includes("..") &&
+        reconAssetPrefixes.some((prefix) => path.startsWith(prefix)));
+}
+function assertReconAssetKey(path) {
+    if (!isReconAssetKey(path)) {
+        throw new Error("Invalid Recon asset key.");
+    }
+}
+function getStoreMode() {
+    return process.env.RECON_ASSET_STORE === "r2" ? "r2" : "local";
+}
+function getR2Client() {
+    const endpoint = process.env.R2_ENDPOINT ||
+        (process.env.CLOUDFLARE_ACCOUNT_ID
+            ? `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`
+            : "");
+    const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+    if (!endpoint || !accessKeyId || !secretAccessKey) {
+        throw new Error("R2 asset storage is missing endpoint or credentials.");
+    }
+    if (!r2Client) {
+        r2Client = new S3Client({
+            region: "auto",
+            endpoint,
+            forcePathStyle: true,
+            credentials: {
+                accessKeyId,
+                secretAccessKey,
+            },
+        });
+    }
+    return r2Client;
+}
+function normalizePrefix(prefix) {
+    const trimmed = prefix.trim().replace(/^\/+|\/+$/g, "");
+    return trimmed === "" ? "" : `${trimmed}/`;
+}
+function reconR2Key(path) {
+    const defaultPrefix = process.env.R2_PRIVATE_BUCKET ? "recon/" : "";
+    const prefix = normalizePrefix(process.env.R2_RECON_KEY_PREFIX ?? defaultPrefix);
+    return `${prefix}${path}`;
+}
+function reconR2ReadCandidates(path) {
+    const primaryBucket = process.env.R2_PRIVATE_BUCKET || process.env.R2_BUCKET;
+    if (!primaryBucket) {
+        throw new Error("R2_PRIVATE_BUCKET is required for R2 asset storage.");
+    }
+    const candidates = [
+        { bucket: primaryBucket, key: reconR2Key(path) },
+        { bucket: primaryBucket, key: path },
+    ];
+    if (process.env.R2_BUCKET && process.env.R2_BUCKET !== primaryBucket) {
+        candidates.push({ bucket: process.env.R2_BUCKET, key: path });
+    }
+    return candidates.filter((candidate, index, all) => all.findIndex((other) => other.bucket === candidate.bucket && other.key === candidate.key) === index);
+}
+async function readFromR2(path) {
+    let result = null;
+    let lastError = null;
+    for (const candidate of reconR2ReadCandidates(path)) {
+        try {
+            result = await getR2Client().send(new GetObjectCommand({
+                Bucket: candidate.bucket,
+                Key: candidate.key,
+            }));
+            break;
+        }
+        catch (error) {
+            lastError = error;
+            const status = error
+                .$metadata?.httpStatusCode;
+            if (status !== 404 && error.name !== "NoSuchKey") {
+                throw error;
+            }
+        }
+    }
+    if (!result) {
+        throw lastError instanceof Error
+            ? lastError
+            : new Error("R2 asset object could not be read.");
+    }
+    if (!result.Body) {
+        throw new Error("R2 asset object did not include a response body.");
+    }
+    const body = await result.Body.transformToByteArray();
+    return {
+        body,
+        contentType: result.ContentType || getReconAssetContentType(path),
+        source: "r2",
+    };
+}
+async function readFromLocal(path) {
+    if (process.env.NODE_ENV === "production") {
+        throw new Error("Local Recon asset storage is disabled in production.");
+    }
+    const { readReconAssetFromLocal } = await import("./recon-local-asset-storage");
+    return readReconAssetFromLocal(path);
+}
+export async function readReconAsset(path) {
+    assertReconAssetKey(path);
+    if (process.env.NODE_ENV === "production" || getStoreMode() === "r2") {
+        try {
+            return await readFromR2(path);
+        }
+        catch (error) {
+            if (process.env.NODE_ENV === "production") {
+                throw error;
+            }
+            return readFromLocal(path);
+        }
+    }
+    return readFromLocal(path);
+}

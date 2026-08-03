@@ -1,0 +1,12 @@
+import type { Row } from "@libsql/client";
+import type { CommunitySuggestion, ContactSubmission, OfficialGuideItem, ReconAsset, ReconGame, ReconMap, ReconMarker, ReconMarkerSuggestion } from "./types";
+export declare function readString(row: Row, key: string): string;
+export declare function mapOfficialItem(row: Row): OfficialGuideItem;
+export declare function mapSuggestion(row: Row): CommunitySuggestion;
+export declare function mapContactSubmission(row: Row): ContactSubmission;
+export declare function mapReconGame(row: Row): ReconGame;
+export declare function mapReconAsset(row: Row, prefix?: string): ReconAsset;
+export declare function mapReconMap(row: Row): ReconMap;
+export declare function mapReconMarker(row: Row): ReconMarker;
+export declare function mapReconMarkerSuggestion(row: Row): ReconMarkerSuggestion;
+export declare const reconMapSelect = "\n  m.*,\n  g.slug AS game_slug,\n  g.title AS game_title,\n  g.short_title AS game_short_title,\n  a.id AS asset_id,\n  a.game_id AS asset_game_id,\n  a.map_id AS asset_map_id,\n  a.type AS asset_type,\n  a.path AS asset_path,\n  a.width AS asset_width,\n  a.height AS asset_height,\n  a.source_name AS asset_source_name,\n  a.source_url AS asset_source_url,\n  a.license AS asset_license,\n  a.attribution AS asset_attribution,\n  a.imported AS asset_imported,\n  a.status AS asset_status,\n  a.visibility AS asset_visibility,\n  a.notes AS asset_notes,\n  a.created_at AS asset_created_at,\n  a.updated_at AS asset_updated_at\n";

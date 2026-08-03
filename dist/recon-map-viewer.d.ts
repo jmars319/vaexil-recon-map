@@ -1,0 +1,3 @@
+import type { ReconMapViewerProps } from "./recon-map-viewer-types";
+export type { ReconCoordinate, ReconMapViewerProps, ReconSuggestionContext, ReconSuggestionDraft, ReconSuggestionKind, ReconViewerCategory, ReconViewerMarker, ReconViewerMarkerDetail, ReconViewerMarkerMedia, } from "./recon-map-viewer-types";
+export declare function ReconMapViewer({ title, imageSrc, imageAlt, width, height, minZoom, maxZoom, markers, categories, onCoordinateCapture, capturedCoordinate, markerSummaryLabel, emptyState, className, viewerMode, suggestionContext, suggestionAction, }: ReconMapViewerProps): import("react").JSX.Element;
